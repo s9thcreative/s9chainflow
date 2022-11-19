@@ -130,6 +130,7 @@ class SQLGen{
 			}
 			return $ret;
 		}
+		if ($col === null) return "null";
 		return "'".$db->escape($col)."'";
 	}
 

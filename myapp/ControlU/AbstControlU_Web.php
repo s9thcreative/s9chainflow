@@ -6,6 +6,8 @@ use \MyApp\Acsr\Acsr_user;
 use \MyApp\Acsr\TransactionDB;
 use \S9\Cf;
 use \S9ChainU\MailObs;
+use \S9\ParamCheck;
+use \MyApp\Library\ParamCheckLogicCustom;
 
 class AbstControlU_Web extends \S9ChainU\AbstWebControlU{
 
@@ -23,7 +25,7 @@ class AbstControlU_Web extends \S9ChainU\AbstWebControlU{
 	}
 
 	function beforeAction(){
-		$this->trans = new TransactionDB();;
+		$this->trans = new TransactionDB();
 		return null;
 	}
 
@@ -43,5 +45,22 @@ class AbstControlU_Web extends \S9ChainU\AbstWebControlU{
 		return $mobs->issuccess;
 
 	}
+
+
+	function checker($target){
+		$checker = new ParamCheck();
+		$targetcf = Cf::g('paramcheck.target');
+		if (!isset($targetcf[$target])){
+			throw new \Exception('check target error');
+		}
+		$checker->target = $targetcf[$target];
+		$checker->name = $target;
+		$checker->messages = Cf::g('paramcheck.messages');
+		$checker->logic = Cf::g('paramcheck.logic');
+		$checker->customlogic['custom'] = ParamCheckLogicCustom::getInstance();
+		$checker->inputcallback = function($v, $def){return $this->pv($v, $def);};
+		return $checker;
+	}
+
 
 }

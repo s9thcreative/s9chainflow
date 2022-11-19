@@ -1,6 +1,7 @@
 <?php
-/*
- * S9ChainFlow v0.5
+/**
+ * s9-chain-flow
+ * version 0.5.0.221119
  */
 namespace S9ChainU;
 
@@ -12,12 +13,7 @@ class Obs{
 		$u = $this->genU(null, $this->firstSetting());
 		while(true){
 			if (!$u) break;
-			try{
-				$setting = $u->process();
-			}
-			catch(\Exception $e){
-				$setting = array('class'=>'error', 'exception'=>$e, 'setting'=>array('data'=>array('errmsg'=>$e->getMessage())));
-			}
+			$setting = $u->process();
 			$nu = $this->genU($u, $setting);
 			if ($nu){
 				$u->connect($nu);
@@ -88,14 +84,54 @@ class ObsWeb extends Obs{
 		$this->webrootpathfull = $url;
 		return $url;
 	}
-	function fullWebCurrent($path){
-		if ($path == "" || $path == "/"){
-			return $this->fullWebHost()."/";
+	function fullWebCurrent($path, $addition=array()){
+		if (!$addition){
+			if ($path == "" || $path == "/"){
+				return $this->fullWebHost()."/";
+			}
 		}
+		if (!$path) $path = "/";
 		if ($path[0] != "/") $path = "/".$path;
-		$url = $this->fullWebHost().$this->webrootpath.$path;
+		$addpath = "";
+		foreach ($addition as $addtarget){
+			if (isset($this->data['siteusage'][$addtarget])){
+				$addpath .= "/".$this->data['siteusage'][$addtarget];
+			}
+		}
+		$url = $this->fullWebHost().$this->webrootpath.$addpath.$path;
 		return $url;
 	}
+	function isAllowLang($lang){
+		if (isset($this->webSetting['siteusage']['lang'])){
+			$tgar = $this->webSetting['siteusage']['lang'];
+		}
+		else{
+			return false;
+		}
+		foreach ($tgar as $tgk=>$tgv){
+			if (is_int($tgk)){
+				$key = $tgv;
+			}
+			else{
+				$key = $tgk;
+			}
+			if ($key[0] == "!") $key = substr($key, 1);
+			if ($lang == $key){
+				return true;
+			}
+		}
+		return false;
+	}
+
+	function groupSetting(){
+		$group = $this->data['siteusage']['group'];
+		$root = $this->webSetting;
+		if (isset($this->webSetting['group']) && isset($this->webSetting['group'][$group])){
+			$root = $this->webSetting['group'][$group];
+		}
+		return $root;
+	}
+
 	function firstSetting(){
 		return array('class'=>'first');
 	}
@@ -124,18 +160,13 @@ class ObsWeb extends Obs{
 		}
 	}
 
-	function groupSetting(){
+	function genAuthU($setting){
+		$authlist = array();
 		$group = $this->data['siteusage']['group'];
 		$root = $this->webSetting;
 		if (isset($this->webSetting['group']) && isset($this->webSetting['group'][$group])){
 			$root = $this->webSetting['group'][$group];
 		}
-		return $root;
-	}
-
-	function genAuthU($setting){
-		$authlist = array();
-		$root = $this->groupSetting();
 		if (isset($root['auth'])){
 			$authlist = $root['auth'];
 		}
@@ -187,6 +218,13 @@ class ObsWeb extends Obs{
 
 class WebFirstU extends U{
 	function process(){
+		if (isset($this->obs->webSetting['issecure']) && $this->obs->webSetting['issecure']){
+			if (!$_SERVER['HTTPS']){
+				$url = "https://".getenv('HTTP_HOST').getenv('REQUEST_URI');
+				return array('class'=>'redirect', 'url'=>$url, 'direct');
+			}
+		}
+
 		$webrootpath = $this->obs->webrootpath;
 		$webrootpathlen = strlen($webrootpath);
 		$this->obs->data['webrootpath'] = $webrootpath;
@@ -243,18 +281,27 @@ class WebFirstU extends U{
 							if (is_array($chv)){
 								$chv = $chv['alias'];
 							}
+							$notaddpath = false;
+							if ($chv[0] == "!"){
+								$notaddpath = true;
+								$chv = substr($chv, 1);
+							}
 							if ($chv == $ar[0]){
 								$v = $tgv;
 								$path = array_shift($ar);
-								$gpath .= "/".$path;
+								if (!$notaddpath){
+									$gpath .= "/".$path;
+								}
 								break;
 							}
 						}
 					}
 				}
+				$usedefault = false;
 				if (!$v){
 					if ($tgar){
 						$v = $tgar[0];
+						$usedefault = true;
 					}
 				}
 				if (is_array($v)){
@@ -262,12 +309,15 @@ class WebFirstU extends U{
 					$v = $v['target'];
 				}
 				else{
+					if ($v[0] == "!") $v = substr($v, 1);
 					$va = $v;
 				}
 				$siteusage[$tg] = $v;
 				$siteusage[$tg.'_alias'] = $va;
+				$siteusage[$tg.'_usedefault'] = $usedefault;
 			}
 		}
+
 		$siteusage['basepath'] = $gpath;
 
 		$root = $this->obs->webSetting;
@@ -279,6 +329,48 @@ class WebFirstU extends U{
 		}
 		else{
 			$siteusage['toppagepath'] = $webrootpath.$gpath."/";
+		}
+
+		if (array_key_exists('lang_usedefault', $siteusage) && $siteusage['lang_usedefault']){
+			$setlang = null;
+			if (isset($root['lang_cookie_name'])){
+				if (isset($_COOKIE[$root['lang_cookie_name']])){
+					$setlang = $_COOKIE[$root['lang_cookie_name']];
+				}
+			}
+			if (!$setlang){
+				$lang = getenv('HTTP_ACCEPT_LANGUAGE');
+				if ($lang){
+					$headerlang = substr($lang, 0, 2);
+					if (isset($this->obs->webSetting['siteusage']['lang'])){
+						$tgar = $this->obs->webSetting['siteusage']['lang'];
+					}
+					foreach ($tgar as $tgk=>$tgv){
+						if (is_int($tgk)){
+							$key = $tgv;
+						}
+						else{
+							$key = $tgk;
+						}
+						if ($key[0] == "!") $key = substr($key, 1);
+						if ($headerlang == $key){
+							$setlang = $headerlang;
+							break;
+						}
+					}
+				}
+				if (!$setlang){
+					if (isset($this->obs->webSetting['default_lang'])){
+						$setlang = $this->obs->webSetting['default_lang'];
+					}
+					else{
+						$setlang = 'ja';
+					}
+				}
+			}
+			if ($setlang){
+				$siteusage['lang'] = $setlang;
+			}
 		}
 
 		if (count($ar) == 0 || (count($ar) == 1 && $ar[0] == "")){
@@ -443,6 +535,7 @@ class AbstWebControlU extends U{
 		if ($siteusage['group'] != "default") $path .= "/".$siteusage['group'];
 		$domain = $this->obs->webSetting['domain'];
 		$issecure = $this->obs->webSetting['issecure'];
+		if ($path == "") $path = "/";
 		setcookie($cknm, $val, $expiretm, $path, $domain, $issecure); 
 	}
 	function process(){
@@ -482,9 +575,11 @@ class AbstWebControlU extends U{
 		$ret = array();
 		$ret['_basecurrentpath'] = $this->obs->data['siteusage']['currentpath'];
 		$ret['_basecurrentfull'] = $this->obs->fullWebCurrent($this->obs->data['siteusage']['currentpath']);
+		$ret['_basecurrentfull_lang'] = $this->obs->fullWebCurrent($this->obs->data['siteusage']['currentpath'], array('lang'));
 		$ret['_basetop'] = $this->obs->fullWebHost().$this->obs->data['siteusage']['toppagepath'];
 		$ret['_baseroot'] = $this->obs->webrootpath.'/';
 		$ret['_basefull'] = $this->obs->fullWebRootPath().'/';
+		$ret['_basefull_lang'] = $this->obs->fullWebRootPath().'/'.$this->obs->data['siteusage']['lang'];
 		$ret['_lang'] = $this->obs->data['siteusage']['lang'];
 		return $ret;
 	}
@@ -510,12 +605,13 @@ class WebViewU extends U{
 				$opt = array_merge($opt, $this->obs->webSetting['ml']['opt']);
 			}
 			if (!isset($opt['ml_convert'])){
-				$opt['ml_convert'] = function($format, $vals, $attr, $lang){
+				$opt['ml_convert'] = function($format, $vals, $attr, $lang, $thru=false){
 					if (isset($attr['lang'])) $lang = $attr['lang']; 
 					if ($lang){
 						$obj = \S9\MultiLang\MultiLang::object($lang);
 						$format = $obj->text($format);
 					}
+					if ($thru) return $format;
 					return vsprintf($format, $vals);
 				};
 			}
@@ -600,6 +696,7 @@ class WebOutputU extends U{
 	var $pathConvertSetting = array(
 		'a'=>'href',
 		'form'=>'action',
+		'input'=>'formaction',
 		'img'=>'src',
 		'video'=>'src',
 		'audio'=>'src',
@@ -676,7 +773,12 @@ class WebOutputU extends U{
 								$ntagv = "";
 								$ipos = strlen($tagname)+2;
 								$nipos = 0;
+							$tryct = 0;
 								while($ipos < strlen($tagv)-$repvlen-2){
+						if ($tryct++ > 100){
+							var_dump('error');
+							exit;
+						}
 									$c = $tagv[$ipos];
 									if (ord($c) > 0x20){
 										$iendpos = -1;
@@ -784,8 +886,7 @@ class WebRedirectU extends U{
 				$url = $this->obs->data['webrootpath'].$url;
 			}
 		}
-		http_response_code(303);
-		header('Cache-Control: no-store');
+		http_response_code(301);
 		header('Location:'.$url);
 		return null;
 
@@ -852,6 +953,7 @@ class MailObs extends Obs{
 		fwrite($fp, date('[Y/m/d H:i:s]').$txt."\n");
 		fclose($fp);
 	}
+
 }
 
 class MailFirstU extends U{

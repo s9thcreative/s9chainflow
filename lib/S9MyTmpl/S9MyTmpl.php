@@ -624,7 +624,25 @@ class S9MyTmpl{
 					}
 					$lang = null;
 					if (isset($this->config['ml_lang'])) $lang = $this->config['ml_lang'];
-					$res = call_user_func_array($this->config['ml_convert'], array($format, $vals, $listdata['attr'], $lang));
+					$res = call_user_func_array($this->config['ml_convert'], array($format, $vals, $listdata['attr'], $lang, true));
+					$opt = "+";
+					if (isset($this->config['ml_options'])){
+						$opt = $this->config['ml_options'];
+					}
+					if (isset($listdata['attr']['option'])){
+						$opt = $listdata['attr']['option'];
+					}
+					$texts = explode('%s', $res);
+					$ret = "";
+					$index = 0;
+					foreach ($texts as $txt){
+						$ret .= $this->_valueWithOption($txt, $opt);
+						if ($index < count($texts)-1){
+							$ret .= $vals[$index];
+							$index++;
+						}
+					}
+					$res = $ret;
 				}
 				else{
 					$res = $this->_apply($listdata['childlist'][0], $data, $rootdata);
@@ -645,7 +663,7 @@ class S9MyTmpl{
 		}
 		return $output;
 	}
-	
+
 	function _applyDefault($val){
 		return $val;
 	}

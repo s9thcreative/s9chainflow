@@ -10,7 +10,7 @@ Cf::s('myapp.web_setting', array(
 	'group'=>array(
 		'default'=>array(
 			'default_path'=>'/top/index',
-			'page'=>array('controls'=>'top', 'to'=>'/page/show'),
+			'page'=>array('controls'=>'top,test', 'to'=>'/page/show'),
 			'error'=>array('default'=>array('class'=>'view', 'path'=>'/error/error', 'frame'=>'main')),
 		),
 	),
@@ -33,5 +33,7 @@ Cf::s('myapp.mailsetting', array(
 ));
 
 
+
 Cf::s('db.date_format', '%Y-%m-%d %H:%i:%s');
 
+require_once APP_ROOT.'/setup/myapp/param_check.php';

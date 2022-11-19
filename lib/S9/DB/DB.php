@@ -82,14 +82,13 @@ class DB{
 		if (!$data) return null;
 		return $data;
 	}
-	function lastid(){
-		if (!$this->con) throw new \Exception('no connect');
-		return $this->one('select last_insert_id()');
-	}
 
 	function escape($v){
 		if (!$this->con) throw new \Exception('no connect');
 		return $this->con->escape_string($v);
 	}
 
+	function lastid(){
+		return $this->one('select last_insert_id()');
+	}
 }

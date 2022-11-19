@@ -5,7 +5,7 @@
 </head>
 <body>
 <header><div style="border-bottom:1px solid #000">
-<a href="/">TOP</a> | <a href="/samplepage">sample</a>
+<a href="/">TOP</a> | <a href="/samplepage">sample</a> | <a href="/test">test</a>
 </div></header>
 <main><div style="min-height:300px;">
 <@$_output ! @>
