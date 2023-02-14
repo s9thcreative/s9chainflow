@@ -11,6 +11,7 @@ class CSVParser{
 
 	var $callback = array();
 	var $limit = 0;
+	var $headercount = 0;
 
 
 	function __construct(){
@@ -25,6 +26,7 @@ class CSVParser{
 		$curd = array();
 		$callbackbef = null;
 		$callbackaft = null;
+		$hct = 0;
 		if (isset($this->callback['before'])){
 			$callbackbef = $this->callback['before'];
 		}
@@ -37,7 +39,7 @@ class CSVParser{
 				$c = $src[$i];
 			}
 			if ($qflg){
-				if ($c == $this->quote){
+				if ($this->quote && $c == $this->quote){
 					if ($i < $len-1){
 						if ($src[$i+1] == $this->quote){
 							$v .= substr($src, $pos, $i-$pos);
@@ -45,24 +47,38 @@ class CSVParser{
 							$pos = $i;
 							continue;
 						}
-						else{
-							$v .= substr($src, $pos, $i-$pos);
-							$pos = $i+1;
-							$qflg = false;
-						}
 					}
+					$v .= substr($src, $pos, $i-$pos);
+					$pos = $i+1;
+					$qflg = false;
 				}
 				continue;
 			}
-			if ($c == $this->quote){
+			if ($this->quote && $c == $this->quote){
 				$qflg = true;
 				$v .= substr($src, $pos, $i-$pos);
 				$pos = $i+1;
 				continue;
 			}
+			if ($hct < $this->headercount){
+				if ($c === null || $c == "\n" || $c == "\r"){
+					if ($c == "\r"){
+						if ($i < $len-1){
+							if ($src[$i+1] == "\n"){
+								$i++;
+							}
+						}
+					}
+					$pos = $i+1;
+					$hct++;
+				}
+				continue;
+			}
 			if ($c === null || $c == $this->separator || $c == "\n" || $c == "\r"){
-				$v .= substr($src, $pos, $i-$pos);
-				$curd[] = $v;
+				if ($c != null || $pos != $i){
+					$v .= substr($src, $pos, $i-$pos);
+					$curd[] = $v;
+				}
 				if ($c == "\r"){
 					if ($i < $len-1){
 						if ($src[$i+1] == "\n"){

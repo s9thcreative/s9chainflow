@@ -326,7 +326,7 @@ class S9MyTmpl{
 					if ($dataval && $dataval[0] == '$'){
 						$dataval = substr($dataval, 1);
 					}
-					return array('type'=>'include', 'file'=>$this->hashval("file", $attr), 'data'=>$dataval, 'extdata'=>$this->hashval("extdata", $attr), 'option'=>$this->hashval("option", $attr));
+					return array('type'=>'include', 'file'=>$this->hashval("file", $attr),'src'=>$this->hashval("src", $attr), 'data'=>$dataval, 'extdata'=>$this->hashval("extdata", $attr), 'option'=>$this->hashval("option", $attr));
 				}
 				if ($tagtype === "fillin"){
 					if ($com[0] === "/"){
@@ -557,12 +557,20 @@ class S9MyTmpl{
 				continue;
 			}
 			if ($listdata['type'] === "include"){
-				$file = $listdata['file'];
-				$file = $this->_applyValueData($data, $rootdata, $file);
-				if (!file_exists($file)){
-//					$this->error("include file not exists ".$file);
-//					return false;
-					continue;
+				$src = null;
+				if (isset($listdata["src"])){
+					$srcposition = $listdata["src"];
+					$src = $this->_applyValueData($data, $rootdata, $srcposition);
+					if (!$src) continue;
+				}
+				else{
+					$file = $listdata['file'];
+					$file = $this->_applyValueData($data, $rootdata, $file);
+					if (!file_exists($file)){
+	//					$this->error("include file not exists ".$file);
+	//					return false;
+						continue;
+					}
 				}
 				$position = "";
 				if (array_key_exists("data", $listdata)){
@@ -577,9 +585,19 @@ class S9MyTmpl{
 					$senddata['_extdata'] = $extdata;
 				}
 				
-				$t = new S9MyTmpl($file, "file");
+				if ($src !== null){
+					$t = new S9MyTmpl($src);
+				}
+				else{
+					$t = new S9MyTmpl($file, "file");
+				}
 				$t->config = $this->config;
-				$t->config['texted'] = $this->loadTexted($file);
+				if ($src === null){
+					$t->config['texted'] = $this->loadTexted($file);
+				}
+				else{
+					$t->config["texted"] = $this->config['texted'];
+				}
 				$incout = $t->output($senddata, $rootdata);
 				if ($incout === false){
 					$this->error("include file ".$file." output error ".$t->errorstr);
@@ -604,7 +622,18 @@ class S9MyTmpl{
 				$output .= $fillout;
 			}
 			if ($listdata['type'] === "ml"){
+				$res = "";
+				$doignore = false;
+				$doset = true;
 				if (isset($this->config['ml_convert'])){
+					$lang = null;
+					if (isset($this->config['ml_lang'])) $lang = $this->config['ml_lang'];
+					if (isset($listdata['attr']['only'])){
+						$doignore = true;
+						if ($lang != $listdata['attr']['only']) $doset = false;
+					}
+				}
+				if (!$doignore){
 					$format = "";
 					$vals = array();
 					if (isset($listdata['childlist'][0])){
@@ -622,8 +651,6 @@ class S9MyTmpl{
 							}
 						}
 					}
-					$lang = null;
-					if (isset($this->config['ml_lang'])) $lang = $this->config['ml_lang'];
 					$res = call_user_func_array($this->config['ml_convert'], array($format, $vals, $listdata['attr'], $lang, true));
 					$opt = "+";
 					if (isset($this->config['ml_options'])){
@@ -645,9 +672,11 @@ class S9MyTmpl{
 					$res = $ret;
 				}
 				else{
-					$res = $this->_apply($listdata['childlist'][0], $data, $rootdata);
-					if ($res === false){
-						return false;
+					if ($doset){
+						$res = $this->_apply($listdata['childlist'][0], $data, $rootdata);
+						if ($res === false){
+							return false;
+						}
 					}
 				}
 				$output .= $res;

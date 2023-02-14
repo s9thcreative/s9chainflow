@@ -55,6 +55,91 @@ class U{
 	}
 }
 
+class WebU extends U{
+	function valueAs($type, $v, $def){
+		if ($type == "int"){
+			if (preg_match('/\D/', $v)) return $def;
+			return (int)($v);
+		}
+		return $v;
+	}
+	function param($idx, $def=null){
+		if (isset($this->setting['flow']['params'])){
+			$params = $this->setting['flow']['params'];
+			if ($idx < count($params)) return $params[$idx];
+		}
+		return $def;
+	}
+	function paramAs($idx, $type, $def=null){
+		$v = $this->param($idx, $def);
+		return $this->valueAs($type, $v, $def);
+	}
+	function gv($name, $def=null){
+		$get = $_GET;
+		if (isset($this->setting['flow']['get'])){
+			$get = $this->setting['flow']['get'];
+		}
+		if (!isset($get[$name])) return $def;
+		return $get[$name];
+	}
+	function pv($name, $def=null){
+		$post = $_POST;
+		if (isset($this->setting['flow']['post'])){
+			$post = $this->setting['flow']['post'];
+		}
+		if (!isset($post[$name])) return $def;
+		return $post[$name];
+	}
+	function cv($name, $def=null){
+		$root = $this->obs->groupSetting();
+		if (!isset($root['cookie_setting']) || !isset($root['cookie_setting'][$name])){
+			return $def;
+		}
+		$cf = $root['cookie_setting'][$name];
+		if (isset($cf['name'])){
+			$name = $cf['name'];
+		}
+		return $this->cookiev($name, $def);
+	}
+	function cookiev($name, $def=null){
+		if (!isset($this->obs->data['cookie']['data'])){
+			return $def;
+		}
+		$cookie = $this->obs->data['cookie']['data'];
+		if (!isset($cookie[$name])) return $def;
+		return $cookie[$name];
+	}
+	function setcookie($nm, $val){
+		$root = $this->obs->groupSetting();
+		if (!isset($root['cookie_setting'][$nm])){
+			throw new \Exception('cookie setting error');
+		}
+		$ckcf = $root['cookie_setting'][$nm];
+		$cknm = $nm;
+		if (isset($ckcf['name'])) $cknm = $ckcf['name'];
+		$expiretm = 0;
+		if (isset($ckcf['expire'])){
+			if ($val === null || $val == ""){
+				$expiretm = time()-1;
+			}
+			else{
+				$expiretm = time()+$ckcf['expire'];
+			}
+		}
+
+		$siteusage = $this->obs->data['siteusage'];
+		$path = WEB_ROOT_PATH.$siteusage['basepath'];
+		$domain = $this->obs->webSetting['domain'];
+		$issecure = $this->obs->webSetting['issecure'];
+		if ($path == "") $path = "/";
+		setcookie($cknm, $val, $expiretm, $path, $domain, $issecure);
+	}
+
+	function nocacheHeader(){
+		header('Cache-Control: no-cache');
+	}
+}
+
 
 class ObsWeb extends Obs{
 	var $webSetting = null;
@@ -216,7 +301,7 @@ class ObsWeb extends Obs{
 	}
 }
 
-class WebFirstU extends U{
+class WebFirstU extends WebU{
 	function process(){
 		if (isset($this->obs->webSetting['issecure']) && $this->obs->webSetting['issecure']){
 			if (!$_SERVER['HTTPS']){
@@ -383,6 +468,8 @@ class WebFirstU extends U{
 			}
 		}
 
+		$siteusage['activepath'] = join('/', $ar);
+
 		if (isset($root['page'])){
 			$forpage = false;
 			$v = "";
@@ -451,7 +538,7 @@ class WebFirstU extends U{
 	}
 }
 
-class AbstWebAuthU extends U{
+class AbstWebAuthU extends WebU{
 	var $authindex = 0;
 	var $authsetting = null;
 	function process(){
@@ -474,70 +561,9 @@ class WebLastAuthU extends AbstWebAuthU{
 	}
 }
 
-class AbstWebControlU extends U{
+class AbstWebControlU extends WebU{
 	var $setdata = array();
 	var $frame = "main";
-	function param($idx, $def=null){
-		if (isset($this->setting['flow']['params'])){
-			$params = $this->setting['flow']['params'];
-			if ($idx < count($params)) return $params[$idx];
-		}
-		return $def;
-	}
-	function gv($name, $def=null){
-		$get = $_GET;
-		if (isset($this->setting['flow']['get'])){
-			$get = $this->setting['flow']['get'];
-		}
-		if (!isset($get[$name])) return $def;
-		return $get[$name];
-	}
-	function pv($name, $def=null){
-		$post = $_POST;
-		if (isset($this->setting['flow']['post'])){
-			$post = $this->setting['flow']['post'];
-		}
-		if (!isset($post[$name])) return $def;
-		return $post[$name];
-	}
-	function cv($name, $def=null){
-		$root = $this->obs->groupSetting();
-		if (!isset($root['cookie_setting']) || !isset($root['cookie_setting'][$name])){
-			return $def;
-		}
-		$cf = $root['cookie_setting'][$name];
-		if (isset($cf['name'])){
-			$name = $cf['name'];
-		}
-		return $this->cookiev($name, $def);
-	}
-	function cookiev($name, $def=null){
-		if (!isset($this->obs->data['cookie']['data'])){
-			return $def;
-		}
-		$cookie = $this->obs->data['cookie']['data'];
-		if (!isset($cookie[$name])) return $def;
-		return $cookie[$name];
-	}
-	function setcookie($nm, $val){
-		$root = $this->obs->groupSetting();
-		if (!isset($root['cookie_setting'][$nm])){
-			throw new \Exception('cookie setting error');
-		}
-		$ckcf = $root['cookie_setting'][$nm];
-		$cknm = $nm;
-		if (isset($ckcf['name'])) $cknm = $ckcf['name'];
-		$expiretm = 0;
-		if ($val === null || $val == "") $expiretm = time()+$ckcf['expire'];
-
-		$siteusage = $this->obs->data['siteusage'];
-		$path = WEB_ROOT_PATH;
-		if ($siteusage['group'] != "default") $path .= "/".$siteusage['group'];
-		$domain = $this->obs->webSetting['domain'];
-		$issecure = $this->obs->webSetting['issecure'];
-		if ($path == "") $path = "/";
-		setcookie($cknm, $val, $expiretm, $path, $domain, $issecure); 
-	}
 	function process(){
 		$res = $this->beforeAction();
 		if ($res){
@@ -576,16 +602,19 @@ class AbstWebControlU extends U{
 		$ret['_basecurrentpath'] = $this->obs->data['siteusage']['currentpath'];
 		$ret['_basecurrentfull'] = $this->obs->fullWebCurrent($this->obs->data['siteusage']['currentpath']);
 		$ret['_basecurrentfull_lang'] = $this->obs->fullWebCurrent($this->obs->data['siteusage']['currentpath'], array('lang'));
+		$ret['_baseactivefull'] = $this->obs->fullWebCurrent($this->obs->data['siteusage']['activepath']);
+		$ret['_baseactivefull_lang'] = $this->obs->fullWebCurrent($this->obs->data['siteusage']['activepath'], array('lang'));
 		$ret['_basetop'] = $this->obs->fullWebHost().$this->obs->data['siteusage']['toppagepath'];
 		$ret['_baseroot'] = $this->obs->webrootpath.'/';
 		$ret['_basefull'] = $this->obs->fullWebRootPath().'/';
 		$ret['_basefull_lang'] = $this->obs->fullWebRootPath().'/'.$this->obs->data['siteusage']['lang'];
 		$ret['_lang'] = $this->obs->data['siteusage']['lang'];
+		$ret['_lang_usedefault'] = isset($this->obs->data['siteusage']['lang_usedefault']) && $this->obs->data['siteusage']['lang_usedefault'];
 		return $ret;
 	}
 }
 
-class WebViewU extends U{
+class WebViewU extends WebU{
 	function ml_convert($format, $vals, $attrs){
 		var_dump($format, $vals, $attrs);
 		exit;
@@ -661,7 +690,7 @@ class WebViewU extends U{
 
 }
 
-class WebOutputU extends U{
+class WebOutputU extends WebU{
 	function process(){
 		$scode = 200;
 		if (isset($this->setting['statuscode'])){
@@ -699,6 +728,7 @@ class WebOutputU extends U{
 		'input'=>'formaction',
 		'img'=>'src',
 		'video'=>'src',
+		'track'=>'src',
 		'audio'=>'src',
 		'link'=>'href',
 		'script'=>'src',
@@ -871,7 +901,7 @@ class WebOutputU extends U{
 	}
 }
 
-class WebRedirectU extends U{
+class WebRedirectU extends WebU{
 	function process(){
 		$url = "";
 		if (isset($this->setting['url'])){
@@ -883,16 +913,17 @@ class WebRedirectU extends U{
 				$url = $this->obs->data['siteusage']['toppagepath'];
 			}
 			else{
-				$url = $this->obs->data['webrootpath'].$url;
+				$url = WEB_ROOT_PATH.$this->obs->data['siteusage']['basepath'].$url;
 			}
 		}
 		http_response_code(301);
 		header('Location:'.$url);
+		$this->nocacheHeader();
 		return null;
 
 	}
 }
-class WebErrorU extends U{
+class WebErrorU extends WebU{
 	function process(){
 		if (!isset($this->setting['nochain']) || !$this->setting['nochain']){
 			$group = "default";
@@ -948,7 +979,13 @@ class MailObs extends Obs{
 	}
 
 	function lg($txt){
-		$logfile = APP_ROOT.'/.log/'.date('Ymd').'.log';
+		$logdir = APP_ROOT.'/.log';
+		$logfile = $logdir."/.".date('Ymd').'.log';
+		if (!is_writable($logfile)){
+			if (!is_writable($logdir)){
+				return;
+			}
+		}
 		$fp = fopen($logfile, "a");
 		fwrite($fp, date('[Y/m/d H:i:s]').$txt."\n");
 		fclose($fp);
@@ -963,6 +1000,10 @@ class MailFirstU extends U{
 		$data = array();
 		if (isset($this->obs->config['data'])){
 			$data = $this->obs->config['data'];
+		}
+		$lang = 'ja';
+		if (isset($this->obs->config['lang'])){
+			$lang = $this->obs->config['lang'];
 		}
 		$root = APP_ROOT;
 		if (isset($this->obs->mailSetting['mail_template_root'])){
@@ -979,11 +1020,30 @@ class MailFirstU extends U{
 		$commondata['ua'] = getenv('HTTP_USER_AGENT');
 		$commondata['ip'] = getenv('REMOTE_ADDR');
 		$commondata['date'] = date('r');
+		$commondata['lang'] = $lang;
 		$data['_common'] = $commondata;
 
 		$opt = array(
-			'env'=>array('VIEW_ROOT'=>$root)
+			'env'=>array('VIEW_ROOT'=>$root),
+			'ml_lang'=>$lang,
+			'ml_options'=>"!"
 		);
+		if ($this->obs->mailSetting && isset($this->obs->mailSetting['ml'])){
+			if (isset($this->obs->mailSetting['ml']['opt'])){
+				$opt = array_merge($opt, $this->obs->mailSetting['ml']['opt']);
+			}
+			if (!isset($opt['ml_convert'])){
+				$opt['ml_convert'] = function($format, $vals, $attr, $lang, $thru=false){
+					if (isset($attr['lang'])) $lang = $attr['lang']; 
+					if ($lang){
+						$obj = \S9\MultiLang\MultiLang::object($lang);
+						$format = $obj->text($format);
+					}
+					if ($thru) return $format;
+					return vsprintf($format, $vals);
+				};
+			}
+		}
 		$tmpl = new \S9MyTmpl\S9MyTmpl($filepath, "file", $opt);
 		$out = $tmpl->output($data);
 
@@ -1074,6 +1134,7 @@ class MailSendU extends U{
 				}
 			}
 		}
+/*
 		$encbody = "";
 		$pos = 0;
 		$mblen = mb_strlen($body);
@@ -1110,6 +1171,8 @@ class MailSendU extends U{
 		if ($pos < $mblen){
 			$encbody .= mb_substr($body, $pos);
 		}
+*/
+		$encbody = $body;
 
 		$this->obs->issuccess = mail($to, $subject, $encbody, $encheaders);
 		return null;
