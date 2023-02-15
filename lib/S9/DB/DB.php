@@ -89,6 +89,7 @@ class DB{
 	}
 
 	function lastid(){
+		if (!$this->con) throw new \Exception('no connect');
 		return $this->one('select last_insert_id()');
 	}
 }

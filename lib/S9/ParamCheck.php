@@ -42,6 +42,7 @@ class ParamCheck{
 
 	function check($data, $addchecker=null){
 		$msg = array();
+		$target = array();
 		foreach ($this->target as $k=>$v){
 			$key = "";
 			$logic = "";
@@ -56,6 +57,10 @@ class ParamCheck{
 			if (!array_key_exists($logic, $this->logic)){
 				continue;
 			}
+			$baselogic = $this->logic[$logic];
+			if (isset($baselogic['merge']) && isset($this->logic[$baselogic['merge']])){
+				$baselogic = array_merge($this->logic[$baselogic['merge']], $baselogic);
+			}
 			$ardef = array(
 				'label'=>'',
 				'required'=>false,
@@ -64,7 +69,10 @@ class ParamCheck{
 				'logic'=>null,
 				'logic_target'=>null
 			);
-			$logicar = array_merge($ardef, $this->logic[$logic]);
+			$logicar = array_merge($ardef, $baselogic);
+			$target[$key] = $logicar;
+		}
+		foreach ($target as $key=>$logicar){
 			$label = $logicar['label'];
 			if ($logicar['required']){
 				if (!isset($data[$key]) || strlen($data[$key]) == 0){

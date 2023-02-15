@@ -1,7 +1,6 @@
 <?php
 /**
  * s9-chain-flow
- * version 0.5.0.221119
  */
 namespace S9ChainU;
 
@@ -13,7 +12,12 @@ class Obs{
 		$u = $this->genU(null, $this->firstSetting());
 		while(true){
 			if (!$u) break;
-			$setting = $u->process();
+			try{
+				$setting = $u->process();
+			}
+			catch(\Exception $e){
+				$setting = array('class'=>'error', 'exception'=>$e, 'setting'=>array('data'=>array('errmsg'=>$e->getMessage())));
+			}
 			$nu = $this->genU($u, $setting);
 			if ($nu){
 				$u->connect($nu);
@@ -136,7 +140,7 @@ class WebU extends U{
 	}
 
 	function nocacheHeader(){
-		header('Cache-Control: no-cache');
+		header('Cache-Control: no-store');
 	}
 }
 
@@ -702,7 +706,7 @@ class WebOutputU extends WebU{
 			$type = $this->setting['type'];
 		}
 		header('Content-Type:'.$type);
-		header('Cache-Control: no-store');
+		$this->nocacheHeader();
 
 		if (preg_match('/\/json$/i', $type)){
 			$jsondata = array();
@@ -710,6 +714,9 @@ class WebOutputU extends WebU{
 				$jsondata = $this->setting['json_data'];
 			}
 			print json_encode($jsondata);
+		}
+		else if (preg_match('/image\/$/i', $type)){
+			print $this->setting['output'];
 		}
 		else{
 			$output = $this->setting['output'];
@@ -916,7 +923,7 @@ class WebRedirectU extends WebU{
 				$url = WEB_ROOT_PATH.$this->obs->data['siteusage']['basepath'].$url;
 			}
 		}
-		http_response_code(301);
+		http_response_code(302);
 		header('Location:'.$url);
 		$this->nocacheHeader();
 		return null;

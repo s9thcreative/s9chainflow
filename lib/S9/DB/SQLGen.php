@@ -144,7 +144,12 @@ class SQLGen{
 					$wsql .= " ".$type." ";
 				}
 				if (is_int($k)){
-					$wsql .= "(".$this->sqlWhere($db, $wdt[1], $wdt[0]).")";
+					if (!is_array($wdt)){
+						$wsql .= "(".$wdt.")";
+					}
+					else{
+						$wsql .= "(".$this->sqlWhere($db, $wdt[1], $wdt[0]).")";
+					}
 				}
 				else{
 					$wsql .= $this->sqlWhereValue($db, $k, $wdt);
