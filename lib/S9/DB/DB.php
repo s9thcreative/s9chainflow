@@ -92,4 +92,9 @@ class DB{
 		if (!$this->con) throw new \Exception('no connect');
 		return $this->one('select last_insert_id()');
 	}
+
+	function rows(){
+		if (!$this->con) throw new \Exception('no connect');
+		return $this->one('select found_rows()');
+	}
 }

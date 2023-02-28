@@ -15,6 +15,7 @@ class SQLGen{
 	var $limit = "";
 	var $dateformat = "";
 	var $forupdate = false;
+	var $calcrows = false;
 
 	static function colDateFormat($col){
 		return array('date_format', $col);
@@ -94,9 +95,12 @@ class SQLGen{
 
 	function sqlValue($db, $col, $deftype){
 		$type = $deftype;
+		$others = array();
 		if (is_array($col)){
-			$type = $col[0];
-			$col = $col[1];
+			$type = array_shift($col);
+			$colbase = array_shift($col);
+			$others = $col;
+			$col = $colbase;
 		}
 		if ($type == "date_format"){
 			$col = $this->sqlValue($db, $col, $deftype);
@@ -107,7 +111,11 @@ class SQLGen{
 			else{
 				$as = $col;
 			}
-			return "date_format(".$col.", '".$this->dateformat."') as ".$db->escape($as);
+			$df = $this->dateformat;
+			if (isset($others[0])){
+				$df = $others[0];
+			}
+			return "date_format(".$col.", '".$df."') as ".$db->escape($as);
 		}
 		if ($type == "adddate"){
 			$interval = preg_replace('/[^-\w ]/', ' ', $col[1]);
@@ -183,6 +191,9 @@ class SQLGen{
 		}
 		if ($this->type == "select"){
 			$sql = "select ";
+			if ($this->calcrows){
+				$sql .= "sql_calc_found_rows ";
+			}
 			$first = true;
 			if ($this->cols){
 				foreach ($this->cols as $col){

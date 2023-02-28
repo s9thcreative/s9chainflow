@@ -512,6 +512,9 @@ class WebFirstU extends WebU{
 			}
 		}
 		if (count($ar) > 0){
+			for($i = 0; $i < count($ar); $i++){
+				$ar[$i] = urldecode($ar[$i]);
+			}
 			$flow['params'] = $ar;
 		}
 		$this->obs->data['firstflow'] = $flow;
