@@ -132,6 +132,27 @@ class ParamCheck{
 				return "type";
 			}
 		}
+		else if ($logic == "datetime14"){
+			if (!preg_match('/^\d{14}$/', $v)){
+				return "datetime";
+			}
+			$arconf = array(array(4), array(2,1,12), array(2,1,31), array(2,0,23), array(2,0,59), array(2,0,59));
+			$ar = array();
+			$pos = 0;
+			foreach ($arconf as $cf){
+				$vv = substr($v, $pos, $cf[0]);
+				$ar[] = $vv;
+				$pos += $cf[0];
+				if (count($cf) > 1){
+					if (($vv < $cf[1]) || ($vv > $cf[2])){
+						return "datetime";
+					}
+				}
+			}
+			if (!checkdate($ar[1], $ar[2], $ar[0])){
+				return "datetime";
+			}
+		}
 		return null;
 	}
 
