@@ -171,7 +171,17 @@ class SQLGen{
 			return $this->sqlValue($db, $k, "col")."=".$this->sqlValue($db, $v, "value");
 		}
 		else{
-			return $this->sqlValue($db, $k, "col").$v[0].$this->sqlValue($db, $v[1], "value");
+			if ($v[0] == "in"){
+				$join = "";
+				foreach ($v[1] as $v1){
+					if ($join) $join .= ",";
+					$join .= $this->sqlValue($db, $v1, "value");
+				}
+				return $this->sqlValue($db, $k, "col")."in(".$join.")";
+			}
+			else{
+				return $this->sqlValue($db, $k, "col").$v[0].$this->sqlValue($db, $v[1], "value");
+			}
 		}
 		return "";
 	}
