@@ -19,10 +19,13 @@ class S9MyTmpl{
 	var $errorstr = "";
 	var $sendframe = array();
 	var $config = null;
+	var $loaddata = array();
+	var $filepath = null;
 
 	function __construct($tmplinfo, $mode="text", $config=array()){
 		$this->config = array_merge(self::$defaultConfig, $config);
 		if ($mode === "file"){
+			$this->filepath = $tmplinfo;
 			$this->tmplsrc = file_get_contents($tmplinfo);
 			$this->config['texted'] = $this->loadTexted($tmplinfo);
 		}
@@ -85,7 +88,7 @@ class S9MyTmpl{
 	
 	
 	function _analize(){
-		$this->sendframe_src = array();
+		$this->sendframe = array();
 		$res = $this->_analizeSrc($this->tmplsrc);
 		if ($res === false){
 			return false;
@@ -120,7 +123,7 @@ class S9MyTmpl{
 		$st = $this->_configTagStart();
 		$st = preg_replace('/(\W)/', "\\\\$1", $st);
 		$ed = $this->_configTagEnd();
-		while(preg_match("/^(.*?)${st}/sm", $src, $m)){
+		while(preg_match("/^(.*?){$st}/sm", $src, $m)){
 			$txt = $m[1];
 			$src = substr($src, strlen($m[0]));
 			if ($txt !== ""){
@@ -328,6 +331,17 @@ class S9MyTmpl{
 					}
 					return array('type'=>'include', 'file'=>$this->hashval("file", $attr),'src'=>$this->hashval("src", $attr), 'data'=>$dataval, 'extdata'=>$this->hashval("extdata", $attr), 'option'=>$this->hashval("option", $attr));
 				}
+				if ($tagtype === "loaddata"){
+					if ($com[0] === "/"){
+						return false;
+					}
+					$attr = $this->_textToAttr($values);
+					$dataval = $this->hashval("data", $attr);
+					if ($dataval && $dataval[0] == '$'){
+						$dataval = substr($dataval, 1);
+					}
+					return array('type'=>'loaddata', 'file'=>$this->hashval("file", $attr), 'target'=>$this->hashval("target", $attr));
+				}
 				if ($tagtype === "fillin"){
 					if ($com[0] === "/"){
 						return array('type'=>'fillin', 'end_tag'=>true);
@@ -356,7 +370,7 @@ class S9MyTmpl{
 			}
 			return false;
 		}
-		if (preg_match('/^\$([\/\?\=]?[\w\.]+|:\S*)(?:\s+(.*))?$/sD', $com, $m)){
+		if (preg_match('/^\$([\/\?\=\+]?[\w\.]+|:\S*)(?:\s+(.*))?$/sD', $com, $m)){
 			$mar = array('type'=>'var', 'value'=>$m[1]);
 			if (isset($m[2])) $mar['options'] = $m[2];
 			return $mar;
@@ -608,6 +622,38 @@ class S9MyTmpl{
 				}
 				$output .= $incout;
 			}
+			if ($listdata['type'] === "loaddata"){
+				$file = $listdata['file'];
+				if ($file === null) $file = "";
+				$file = $this->_applyValueData($data, $rootdata, $file);
+				if ($file == ""){
+					$file = "*.php";
+				}
+				$file = preg_replace('/\*/', $this->filepath, $file);
+				if ($file[0] != "/" && $this->filepath){
+					$file = dirname($this->filepath).'/'.$file;
+				}
+				if (!file_exists($file)){
+//					$this->error("include file not exists ".$file);
+//					return false;
+					continue;
+				}
+				$retdata = require($file);
+				if ($retdata){
+					$target = "";
+					if (isset($listdata['target'])) $target = $listdata['target'];
+					$targetar = array();
+					if ($target) $targetar = explode('.', $target);
+					$cur =& $this->loaddata;
+					foreach ($targetar as $tg){
+						if (!isset($cur[$tg])){
+							$cur[$tg] = array();
+						}
+						$cur =& $cur[$tg];
+					}
+					$cur = array_merge($cur, $retdata);
+				}
+			}
 			if ($listdata['type'] === "fillin"){
 				$res = $this->_apply($listdata['childlist'][0], $data, $rootdata);
 				if ($res === false){
@@ -699,6 +745,7 @@ class S9MyTmpl{
 
 	function _applyValueData($data, $rootdata, $value){
 		$nv = "";
+if (is_null($value)) var_dump($value);
 		while(preg_match('/^(.*?)\$\{?([\/\?]?[\w+.]+|\:.*)\}?/', $value, $m)){
 			$nv .= $m[1];
 			$v = $this->_applyValue($data, $rootdata, $m[2]);
@@ -737,6 +784,10 @@ class S9MyTmpl{
 		else if ($position[0] == "/"){
 			$position = substr($position, 1);
 			$val = $rootdata;
+		}
+		else if ($position[0] == "+"){
+			$position = substr($position, 1);
+			$val = $this->loaddata;
 		}
 		else{
 			$val = $data;
